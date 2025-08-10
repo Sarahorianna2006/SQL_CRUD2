@@ -5,9 +5,9 @@
 3. esto te pedira la contrasena que en la computadora puse 
 `password`
 4. crear base de datos (donde dice 'app_crud' sera el nombre de la base de datos)
-`CREATE DATABASE app_crud;`
+`CREATE DATABASE base_datos_crud;`
 5. usar la base de datos
-`USE app_crud;`
+`USE base_datos_crud;`
 6. crear una tabla (ejemplo 'users')
 `CREATE TABLE users (
 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -56,11 +56,11 @@ revisar en `package.json` y `package-lock.json` que se hayan instalado las depen
 ```js
 DB_HOST=localhost
 DB_USER=cruduser
-DB_PASS=tu_contraseña_segura
-DB_NAME=app_crud
+DB_PASS=19808513Js*
+DB_NAME=base_datos_crud
 PORT=3000
 ```
-No subas .env a repos públicos. Aquí guardamos credenciales de forma simple para desarrollo. (no se que funcion hace, asi que tengo que buscar y comentar aca)
+en `DB_USER` va tu usuario de sql y en `DB_PASS` va tu cotrasena de sql y en `DB_NAME` va el nombre de la base de datos
 4. conexion a mysql - `db.js` — módulo que crea un pool de conexiones usando `mysql2/promise`
 ```js 
 // db.js
@@ -71,16 +71,17 @@ require('dotenv').config();
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER,
-    password: process.env.BD_PASS,
+    password: process.env.DB_PASS,
     database: process.env.DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimint: 0
+    queueLimit: 0
 });
 
 module.exports = pool;
+
 ```
-usar `promise` permite usar `async/await`. El pool gestiona múltiples conexiones.(investigar tambien)
+usar `promise` permite usar `async/await`. El pool gestiona múltiples conexiones.
 5. API REST (server.js)
 `server.js` — servidor Express que expone los endpoints CRUD y sirve archivos estáticos desde `public/`
 ```js
@@ -116,10 +117,15 @@ app.get('/api/users', async (req, res) =>{
 });
 
 // 2) obtener un usuario por id
-app.get('/api/users/id', async (req, res) =>{
+app.get('/api/users/:id', async (req, res) =>{
     try {
-        const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [req.params.id]);
-        if (rows.length === 0) return res.status(404).json({ message: 'Usuario no encontrado' });
+        const {id} = req.params;
+        const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        } 
+       
         res.json(rows[0]);
     } catch (err) {
         console.error(err);
@@ -259,143 +265,103 @@ body { font-family: inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvet
 8.  lógica que consume la API - `public/script.js`
 ```js
 const API_BASE = '/api/users'; //la API está en el mismo host (servida por express)
+const API_URL = '/api/users';
 
+// cargar usuarios al iniciar
+document.addEventListener("DOMContentLoaded", loadUsers);
 
-// elemntos del DOM
-const userForm = document.getElementById('userForm');
-const usersBody = document.getElementById('usersBody')
-const submitBtn = document.getElementById('submitBtn');
-const resetBtn = document.getElementById('resetBtn');
-
-async function fetchUsers() {
+async function loadUsers() {
     try {
-        const res = await fetch(API_BASE);
-        const data = await res.json();
-        renderUsers(data);
+        const res = await fetch(API_URL);
+        const users = await res.json();
+        renderUsers(users);
     } catch (err) {
-        console.error('Error al obtener usuarios', err);
+        console.error("Error cargando usuarios", err);
     }
 }
 
-// renderiza la tabla
+// renderizar usuarios en la tabla
 function renderUsers(users) {
-    usersBody.innerHTML = '';
-    if (!users || users.length === 0) {
-        usersBody.innerHTML = '<tr><td colspan="5" class="text-center">Sin usuarios</td></tr>';
-        return;
+    const tbody = document.getElementById("usersBody");
+    tbody.innerHTML = "";
 
-    }
-    for (const u of users) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${u.id}</td>
-            <td>${escapeHtml(u.name)}</td>
-            <td>${escapeHtml(u.email)}</td>
-            <td>${u.age ?? ''}</td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="editUser(${u.id})">Editar</button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${u.id}">Borrar</button>
-            </td>
+    users.forEach(user => {        
+        tbody.innerHTML += `
+            <tr>
+                <td>${user.id}</td>
+                <td>${user.name}</td>
+                <td>${user.email}</td>
+                <td>${user.age}</td>
+                <td>
+                    <button class="btn btn-warning btn-sm" onclick="editUser(${user.id})">Editar</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})">Eliminar</button>
+                </td>
+            </tr>
         `;
-        usersBody.appendChild(tr);
-    }
+    });    
 }
 
-// escapar texto para evitar XSS basico
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replaceAll('&', '&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-}
-
-// manejar submit (crear o actualizar)
-userForm.addEventListener('submit', async (e) => {
+// crear o actualizar usuario
+document.getElementById("userForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const id = document.getElementById('userId').value;
-    const name = document.getElementById('name').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const ageVal = document.getElementById('age').value;
-    const age = ageVal ? Number(ageVal) : null;
 
-    const body = {name, email, age};
+    const id = document.getElementById("userId").value;
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const age = document.getElementById("age").value.trim();
+
+    const method = id ? "PUT" : "POST";
+    const url = id ? `${API_URL}/${id}` : API_URL;
 
     try {
-        if (id) { //actualizar
-            const res = await fetch(`${API_BASE}/${id}`, {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body)
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                alert(err.message || 'Error al actualizar');
-            }
-        } else { //crear
-            const res = await fetch(API_BASE, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body)
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                alert(err.message || 'Error al crear');
-            }
-        }
-        clearForm();
-        fetchUsers();
+        await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, age })
+        });
+        resetForm();
+        loadUsers();
     } catch (err) {
-        console.error(err);
-        alert('Error en la peticion');
+        console.error("Error guardando usuario:", err);
     }
 });
 
-// rellenar formulario para editar
-async function editUser (id) {
+// editar usuario
+async function editUser(id) {
     try {
-        const res = await fetch(`${API_BASE}/${id}`);
-        if (!res.ok) {
-            alert('No se puede obtener el usuario');
-            return;
-        }
+        const res = await fetch(`${API_URL}/${id}`);
         const user = await res.json();
-        document.getElementById('userId').value = user.id;
-        document.getElementById('name').value = user.name;
-        document.getElementById('email').value = user.email;
-        document.getElementById('age').value = user.age ?? '';
-        submitBtn.textContent = 'Actualizar';
+
+        document.getElementById("userId").value = user.id;
+        document.getElementById("name").value = user.name;
+        document.getElementById("email").value = user.email;
+        document.getElementById("age").value = user.age;
+
+        document.getElementById("submitBtn").textContent = "Actualizar";
     } catch (err) {
-        console.error(err);
+        console.error("Error obteniendo usuario:", err);
     }
 }
 
-// borrar con confirm
+
+// eliminar usuario
 async function deleteUser(id) {
-    if (!confirm('¿Seguro que deseas borrar este usuario?')) return;
+    if (!confirm("¿Seguro que quieres eliminar este usuario?")) return;
     try {
-        const res = await fetch(`${API_BASE}/${id}`, {method: 'DELETE'});
-        if (!res.ok) {
-            const err = await res.json();
-            alert(err.message || 'Error al borrar');
-        } else {
-            fetchUsers();
-        }
+        await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+        loadUsers();
     } catch (err) {
-        console.error(err);
+        console.error("Error eliminando usuario:", err);
     }
 }
 
-//limpiar formulario
-function clearForm() {
-    document.getElementById('userId').value = '';
-    userForm.reset();
-    submitBtn.textContent = 'Crear';
+// resetear formulario
+document.getElementById("resetBtn").addEventListener("click", resetForm);
+function resetForm() {
+    document.getElementById("userId").value = "";
+    document.getElementById("userForm").reset();
+    document.getElementById("submitBtn").textContent = "Crear";
 }
-
-// boton limpiar
-resetBtn.addEventListener('click', () => clearForm());
-
-// cargar lista al inicio 
-fetchUsers();
-
 ```
  - El front hace `fetch` a los endpoints (`/api/users`) y procesa JSON.
 
@@ -406,3 +372,5 @@ fetchUsers();
  - En producción valida y sanitiza más (server + client).
 9. Ejecutar la app localmente
 En la carpeta : base_datos_crud
+iniciar servidor
+`node server.js` o `npx nodemon server.js` (yo trabaje con `node server.js)
