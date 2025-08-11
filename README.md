@@ -626,3 +626,7 @@ async function editUser(id) {
 }
 ```
 (aca solo agregue `document.getElementById("addres").value = user.addres;`, `document.getElementById("gender").value = user.gender;` y `document.getElementById("phone").value = user.phone;`)
+---
+### Terminal ubuntu
+- salir de mysql y ejecutar
+  `mysqldump -u root -p base_datos_crud > base_datos_crud.sql` (en `root` va el usuario que tengas en mysql y en `base_datos_crud` va el nombre de la base de datos. Tener cuidadoen si colocar al final del nombre de la base de datos `.sql`, ya con eso me pide la contraseña de mysql. Luego ya te debe aparecer en archivos en la carpeta principal, esa es mi base de datos.)
