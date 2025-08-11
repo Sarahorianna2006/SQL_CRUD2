@@ -12,11 +12,17 @@ const PORT = process.env.PORT || 3000;
 app.use(cors()); //permitir peticiones desde front (si lo abrimos desde otro origen)
 app.use(express.json()); //parsea JSON en body
 app.use(express.urlencoded({extended: true}));
+
+// ruta para main.html
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/public/main.html');
+});
+
+// servir estaticos
 app.use(express.static(path.join(__dirname, 'public'))); // sirve index.html y assets
 
 
 // --- rutas API CRUD para 'users' ---
-
 
 // 1) obtener lista de usuarios (GET)
 app.get('/api/users', async (req, res) =>{
@@ -49,14 +55,15 @@ app.get('/api/users/:id', async (req, res) =>{
 // 3) crear usuario (POST)
 app.post('/api/users', async (req, res) => {
     try {
-        const { name, email, age } = req.body;
+        const { name, email, age, addres, gender, phone } = req.body;
         //validacion basica
         if (!name || !email) return res.status(400).json({ message: 'name y email son obligatorios'});
 
         const [result] = await pool.query(
-            'INSERT INTO users (name, email, age) VALUES (?, ?, ?)',
-            [name, email,age || null]
+            'INSERT INTO users (name, email, age, addres, gender, phone) VALUES (?, ?, ?, ?, ?, ?)',
+            [name, email, age, addres, gender, phone || null]
         );
+        
         // result.insertId tiene el id del nuevo registro
         const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [result.insertId]);
         res.status(201).json(rows[0]);
@@ -71,11 +78,12 @@ app.post('/api/users', async (req, res) => {
 // 4) actualizar usuario (PUT)
 app.put('/api/users/:id', async (req, res) => {
     try {
-        const { name, email, age } = req.body;
+        const { name, email, age, addres, gender, phone } = req.body;
         const { id } = req.params;
         const [result] = await pool.query(
-           'UPDATE users SET name = ?, email = ?, age = ? WHERE id = ?', [name, email, age || null, id] 
+           'UPDATE users SET name = ?, email = ?, age = ?, addres = ?, gender = ?, phone = ? WHERE id = ?', [name, email, age, addres, gender, phone || null, id] 
         );
+        
         if (result.affectedRows === 0) return res.status(404).json({ message: 'Usuario no encontrado'});
         const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
         res.json(rows[0]);

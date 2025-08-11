@@ -16,8 +16,8 @@ async function loadUsers() {
 
 // renderizar usuarios en la tabla
 function renderUsers(users) {
-    const tbody = document.getElementById("usersBody");
-    tbody.innerHTML = "";
+    const tbody = document.getElementById("userTableBody");
+    tbody.innerHTML = '';
 
     users.forEach(user => {        
         tbody.innerHTML += `
@@ -26,6 +26,9 @@ function renderUsers(users) {
                 <td>${user.name}</td>
                 <td>${user.email}</td>
                 <td>${user.age}</td>
+                <td>${user.addres}</td>
+                <td>${user.gender}</td>
+                <td>${user.phone}</td>
                 <td>
                     <button class="btn btn-warning btn-sm" onclick="editUser(${user.id})">Editar</button>
                     <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})">Eliminar</button>
@@ -43,6 +46,9 @@ document.getElementById("userForm").addEventListener("submit", async (e) => {
     const name = document.getElementById("name").value.trim();
     const email = document.getElementById("email").value.trim();
     const age = document.getElementById("age").value.trim();
+    const addres = document.getElementById("addres").value.trim();
+    const gender = document.getElementById("gender").value.trim();
+    const phone = document.getElementById("phone").value.trim();
 
     const method = id ? "PUT" : "POST";
     const url = id ? `${API_URL}/${id}` : API_URL;
@@ -51,7 +57,7 @@ document.getElementById("userForm").addEventListener("submit", async (e) => {
         await fetch(url, {
             method,
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, email, age })
+            body: JSON.stringify({ name, email, age, addres, gender,phone })
         });
         resetForm();
         loadUsers();
@@ -70,6 +76,9 @@ async function editUser(id) {
         document.getElementById("name").value = user.name;
         document.getElementById("email").value = user.email;
         document.getElementById("age").value = user.age;
+        document.getElementById("addres").value = user.addres;
+        document.getElementById("gender").value = user.gender;
+        document.getElementById("phone").value = user.phone;
 
         document.getElementById("submitBtn").textContent = "Actualizar";
     } catch (err) {

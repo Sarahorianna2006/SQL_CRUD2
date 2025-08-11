@@ -374,3 +374,255 @@ function resetForm() {
 En la carpeta : base_datos_crud
 iniciar servidor
 `node server.js` o `npx nodemon server.js` (yo trabaje con `node server.js)
+---
+## Cambios para agregar mas campos (como addres, gender y phone)
+### Terminal ubuntu
+1. agregar/alterar a la tabla (si la tabla ya estaba con algun contenido como en este caso, seria alterar la tabla para agregarle mas contenido a la tabla)
+-  asegurate de estar con el MySQL activo, hazlo con el comando
+`mysql -u root -p` en el cual te pedira la clave que tengas.
+luego para ver las bases de datos con `SHOW DATABASES;` y luego para seleccionar la base de datos que ya creaste (en este caso 'base_datos_crud') `USE base_datos_crud;` luego para ver el contenido de la base de datos (seria ver las tablas que estan en `base_datos_crud`) `SHOW TABLES;` y te aparecera la tabla que creamos anteriormente (users) y para poder ver el contenido de la tabla es `SELECT * FROM users;` 
+- ya despues que estemos ubicados en la tabla que vamos a agregar contenido es
+`ALTER TABLE users
+ADD direccion VARCHAR(255),
+ADD genero VARCHAR(20),
+ADD telefono VARCHAR(20);`
+y listo, puedes ejecutar `SELECT * FROM users;` y te debera aparecer la tabla con los campos viejos y los nuevo que agregaste.
+---
+### Visual Studio Code
+1. (**server.js**) Ajustar el backend (API)
+En tu controlador o rutas, tienes que asegurarte de que estos campos:
+- Se reciban desde el `req.body` cuando creas o editas un usuario.
+- Se devuelvan en las consultas (`SELECT`)
+`server.js` ordene y agregue esta parte
+```js
+//Middlewares
+app.use(cors()); //permitir peticiones desde front (si lo abrimos desde otro origen)
+app.use(express.json()); //parsea JSON en body
+app.use(express.urlencoded({extended: true}));
+
+// ruta para main.html
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/public/main.html');
+});
+
+// servir estaticos
+app.use(express.static(path.join(__dirname, 'public'))); // sirve index.html y assets
+``` 
+para poder ejecutar `http://localhost:3000/` (este es el link que me aparece cuando ejecuto en la terminal de visual studio `node server.js`) y asi que redireccionara a main.html y me pudiera iniciar el sistema.
+
+- seguimos en `server.js` agregue y ordene esta parte
+```js
+// 3) crear usuario (POST)
+app.post('/api/users', async (req, res) => {
+    try {
+        const { name, email, age, addres, gender, phone } = req.body;
+        //validacion basica
+        if (!name || !email) return res.status(400).json({ message: 'name y email son obligatorios'});
+
+        const [result] = await pool.query(
+            'INSERT INTO users (name, email, age, addres, gender, phone) VALUES (?, ?, ?, ?, ?, ?)',
+            [name, email, age, addres, gender, phone || null]
+        );
+```
+(aca cambie para agregarle addres, gender y phone)
+- seguimos en `server.js` agregue y ordene esta parte
+```js
+// 4) actualizar usuario (PUT)
+app.put('/api/users/:id', async (req, res) => {
+    try {
+        const { name, email, age, addres, gender, phone } = req.body;
+        const { id } = req.params;
+        const [result] = await pool.query(
+           'UPDATE users SET name = ?, email = ?, age = ?, addres = ?, gender = ?, phone = ? WHERE id = ?', [name, email, age, addres, gender, phone || null, id] 
+        );
+```
+(aca cambie para agregarle addres, gender y phone)
+2. (**main.html**) Cambiar el frontend (formulario HTML + script.js)
+En el formulario de `main.html` agregue
+```html
+                        <div class="col-md-5">
+                            <input id="addres" class="form-control" placeholder="Direccion" required>
+                        </div>
+                        <div class="col-md-5">
+                            <input id="gender" class="form-control" placeholder="Genero" required>
+                        </div>
+                        <div class="col-md-5">
+                            <input id="phone" class="form-control" placeholder="Telefono" required>
+                        </div>
+```
+(esto seria mas campo en el formulario 'frontend')
+- seguimos en `main.html` y agregue y ordene
+```html
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Edad</th>
+                            <th>Direccion</th>
+                            <th>Genero</th>
+                            <th>Telefono</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody"></tbody> <!-- filas dinamicas -->
+```
+(agregue en `<thead>` direccion, genero y telefono)(cambie el id de `tbody` por `userTableBody`)
+- asi deberia quedar el `main.html` completo
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD MySQL</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"> <!-- bootstrap -->
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body class="bg-light">
+    <div class="container py-5">
+        <h1 class="mb-4">CRUD Usuarios (MySQL)</h1>
+
+        <!-- formulario (create / edit) -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="userForm">
+                    <input type="hidden" id="userId" value="">
+                    <div class="row g-2">
+                        <div class="col-md-5">
+                            <input id="name" class="form-control" placeholder="Nombre" required>
+                        </div>
+                        <div class="col-md-5">
+                            <input id="email" class="form-control" placeholder="Email" required>
+                        </div>
+                        <div class="col-md-2">
+                            <input id="age" class="form-control" placeholder="Edad" type="number" min="0">
+                        </div>
+
+                        <div class="col-md-5">
+                            <input id="addres" class="form-control" placeholder="Direccion" required>
+                        </div>
+                        <div class="col-md-5">
+                            <input id="gender" class="form-control" placeholder="Genero" required>
+                        </div>
+                        <div class="col-md-5">
+                            <input id="phone" class="form-control" placeholder="Telefono" required>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-primary" id="submitBtn">Crear</button>
+                        <button type="button" class="btn btn-secondary" id="resetBtn">Limpiar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- tabla de usuarios -->
+         <div class="card">
+            <div class="card-body">
+                <table class="table table-hover" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Edad</th>
+                            <th>Direccion</th>
+                            <th>Genero</th>
+                            <th>Telefono</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody"></tbody> <!-- filas dinamicas -->
+                </table>
+            </div>
+         </div>
+    </div>
+
+    <script src="./script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script> <!-- bootstrap js -->
+
+</body>
+</html>
+```
+3. (**script.js**) aca ordene y agregue
+```js
+// renderizar usuarios en la tabla
+function renderUsers(users) {
+    const tbody = document.getElementById("userTableBody");
+    tbody.innerHTML = '';
+
+    users.forEach(user => {        
+        tbody.innerHTML += `
+            <tr>
+                <td>${user.id}</td>
+                <td>${user.name}</td>
+                <td>${user.email}</td>
+                <td>${user.age}</td>
+                <td>${user.addres}</td>
+                <td>${user.gender}</td>
+                <td>${user.phone}</td>
+                <td>
+                    <button class="btn btn-warning btn-sm" onclick="editUser(${user.id})">Editar</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteUser(${user.id})">Eliminar</button>
+                </td>
+            </tr>
+        `;
+    });    
+}
+```
+(en `const tbody = document.getElementById("userTableBody");` cambie `"usersTable"` por `"userTableBody"`  y agregue en `tr` los campos nuevos `<td>${user.addres}</td>`, `<td>${user.gender}</td>` y `<td>${user.phone}</td>`)
+- seguimos en `script.js` aca agregue y ordene
+```js
+// crear o actualizar usuario
+document.getElementById("userForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const id = document.getElementById("userId").value;
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const age = document.getElementById("age").value.trim();
+    const addres = document.getElementById("addres").value.trim();
+    const gender = document.getElementById("gender").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+
+    const method = id ? "PUT" : "POST";
+    const url = id ? `${API_URL}/${id}` : API_URL;
+
+    try {
+        await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, age, addres, gender,phone })
+        });
+        resetForm();
+        loadUsers();
+    } catch (err) {
+        console.error("Error guardando usuario:", err);
+    }
+});
+```
+(aca solo agregue `const addres = document.getElementById("addres").value.trim();`, `const gender = document.getElementById("gender").value.trim();`, y `const phone = document.getElementById("phone").value.trim();`) (aca solo cambie y agregue `body: JSON.stringify({ name, email, age, addres, gender,phone })` que es para agregar `addres`, `gender` y `phone`)
+- seguimos en `script.js` aca agregue y organice
+```js
+// editar usuario
+async function editUser(id) {
+    try {
+        const res = await fetch(`${API_URL}/${id}`);
+        const user = await res.json();
+
+        document.getElementById("userId").value = user.id;
+        document.getElementById("name").value = user.name;
+        document.getElementById("email").value = user.email;
+        document.getElementById("age").value = user.age;
+        document.getElementById("addres").value = user.addres;
+        document.getElementById("gender").value = user.gender;
+        document.getElementById("phone").value = user.phone;
+
+        document.getElementById("submitBtn").textContent = "Actualizar";
+    } catch (err) {
+        console.error("Error obteniendo usuario:", err);
+    }
+}
+```
+(aca solo agregue `document.getElementById("addres").value = user.addres;`, `document.getElementById("gender").value = user.gender;` y `document.getElementById("phone").value = user.phone;`)

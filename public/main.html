@@ -26,6 +26,16 @@
                         <div class="col-md-2">
                             <input id="age" class="form-control" placeholder="Edad" type="number" min="0">
                         </div>
+
+                        <div class="col-md-5">
+                            <input id="addres" class="form-control" placeholder="Direccion" required>
+                        </div>
+                        <div class="col-md-5">
+                            <input id="gender" class="form-control" placeholder="Genero" required>
+                        </div>
+                        <div class="col-md-5">
+                            <input id="phone" class="form-control" placeholder="Telefono" required>
+                        </div>
                     </div>
                     <div class="mt-3">
                         <button class="btn btn-primary" id="submitBtn">Crear</button>
@@ -45,14 +55,16 @@
                             <th>Nombre</th>
                             <th>Email</th>
                             <th>Edad</th>
+                            <th>Direccion</th>
+                            <th>Genero</th>
+                            <th>Telefono</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="usersBody"></tbody> <!-- filas dinamicas -->
+                    <tbody id="userTableBody"></tbody> <!-- filas dinamicas -->
                 </table>
             </div>
          </div>
-
     </div>
 
     <script src="./script.js"></script>
