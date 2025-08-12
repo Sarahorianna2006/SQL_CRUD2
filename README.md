@@ -630,3 +630,296 @@ async function editUser(id) {
 ### Terminal ubuntu
 - salir de mysql y ejecutar
   `mysqldump -u root -p base_datos_crud > base_datos_crud.sql` (en `root` va el usuario que tengas en mysql y en `base_datos_crud` va el nombre de la base de datos. Tener cuidadoen si colocar al final del nombre de la base de datos `.sql`, ya con eso me pide la contraseña de mysql. Luego ya te debe aparecer en archivos en la carpeta principal, esa es mi base de datos.)
+
+
+
+[11/8, 5:41 p. m.] ~Sarah Pérez~: en mysql (terminal ubuntu)
+
+CREATE DATABASE IF NOT EXISTS tienda_excel;
+USE tienda_excel;
+
+-- Tabla de géneros
+CREATE TABLE generos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    genero VARCHAR(10) NOT NULL
+);
+
+INSERT INTO generos (genero) VALUES ('M'), ('F');
+
+-- Tabla de direcciones
+CREATE TABLE direcciones (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    direccion VARCHAR(255),
+    ciudad VARCHAR(100),
+    pais VARCHAR(100)
+);
+
+-- Tabla de usuarios
+CREATE TABLE usuarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100),
+    email VARCHAR(100),
+    edad INT,
+    telefono VARCHAR(20),
+    id_direccion INT,
+    id_genero INT,
+    FOREIGN KEY (id_direccion) REFERENCES direcciones(id),
+    FOREIGN KEY (id_genero) REFERENCES generos(id)
+);
+
+-- Tabla de productos
+CREATE TABLE productos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_producto VARCHAR(100),
+    precio_unitario DECIMAL(10,2)
+);
+
+-- Tabla de compras
+CREATE TABLE compras (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_usuario INT,
+    fecha_compra DATE,
+    FOREIGN KEY (id_usuario) REFERENCES usuarios(id)
+);
+
+-- Tabla de detalle de compras
+CREATE TABLE detalle_compras (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_compra INT,
+    id_producto INT,
+    cantidad INT,
+    FOREIGN KEY (id_compra) REFERENCES compras(id),
+    FOREIGN KEY (id_producto) REFERENCES productos(id)
+);
+[11/8, 5:43 p. m.] ~Sarah Pérez~: (terminal visual) instalar xlsx para poder leer el archivo Excel:
+
+npm install xlsx
+[11/8, 6:42 p. m.] ~Sarah Pérez~: En tu proyecto, crea un archivo .env con tus datos de conexión:
+
+DB_HOST=localhost
+DB_USER=cruduser
+DB_PASSWORD=123456
+DB_NAME=tienda_excel
+[11/8, 6:43 p. m.] ~Sarah Pérez~: subir el archivo excel a la raiz donde esta importar.js
+[11/8, 6:44 p. m.] ~Sarah Pérez~: rectificar que los atributos esten igual de mayusculas, asentos y igual escritos del excel y la base de datos
+[11/8, 6:45 p. m.] ~Sarah Pérez~: crear el archivo importar.js que tendra
+
+require("dotenv").config();
+const mysql = require("mysql2/promise");
+const xlsx = require("xlsx");
+
+(async () => {
+  try {
+    // 1. Conexión a MySQL
+    const connection = await mysql.createConnection({
+      host: "localhost",
+      user: "cruduser", // tu usuario MySQL
+      password: "19808513Js*", // tu contraseña MySQL
+      database: "tienda_excel",
+    });
+
+    console.log("Conectado a MySQL");
+
+    // 2. Leer el archivo Excel
+    const workbook = xlsx.readFile("datos_desordenados.xlsx");
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = xlsx.utils.sheet_to_json(sheet);
+
+    console.log(`${data.length} filas leídas del Excel`);
+
+    for (const row of data) {
+      // === 1) Insertar Género (o reutilizar si existe)
+      const [genRows] = await connection.execute(
+        "SELECT id FROM generos WHERE genero = ?",
+        [row["Género"]]
+      );
+      let generoId;
+      if (genRows.length > 0) {
+        generoId = genRows[0].id;
+      } else {
+        const [res] = await connection.execute(
+          "INSERT INTO generos (genero) VALUES (?)",
+          [row["Género"]]
+        );
+        generoId = res.insertId;
+      }
+
+      // === 2) Insertar Dirección (o reutilizar si existe)
+      const [dirRows] = await connection.execute(
+        "SELECT id FROM direcciones WHERE direccion = ? AND ciudad = ? AND pais = ?",
+        [row["Dirección Completa"], row["Ciudad"], row["País"]]
+      );
+      let direccionId;
+      if (dirRows.length > 0) {
+        direccionId = dirRows[0].id;
+      } else {
+        const [res] = await connection.execute(
+          "INSERT INTO direcciones (direccion, ciudad, pais) VALUES (?, ?, ?)",
+          [row["Dirección Completa"], row["Ciudad"], row["País"]]
+        );
+        direccionId = res.insertId;
+      }
+
+      // === 3) Insertar Usuario (o reutilizar si existe)
+      const [userRows] = await connection.execute(
+        "SELECT id FROM usuarios WHERE email = ?",
+        [row["Email"]]
+      );
+      let usuarioId;
+      if (userRows.length > 0) {
+        usuarioId = userRows[0].id;
+      } else {
+        const [res] = await connection.execute(
+          "INSERT INTO usuarios (nombre, email, edad, telefono, id_direccion, id_genero) VALUES (?, ?, ?, ?, ?, ?)",
+          [
+            row["Nombre Completo"],
+            row["Email"],
+            row["Edad"],
+            row["Teléfono"],
+            direccionId,
+            generoId,
+          ]
+        );
+        usuarioId = res.insertId;
+      }
+
+      // === 4) Insertar Producto (o reutilizar si existe)
+      const [prodRows] = await connection.execute(
+        "SELECT id FROM productos WHERE nombre_producto = ? AND precio_unitario = ?",
+        [row["Producto Comprado"], row["Precio Unitario"]]
+      );
+      let productoId;
+      if (prodRows.length > 0) {
+        productoId = prodRows[0].id;
+      } else {
+        const [res] = await connection.execute(
+          "INSERT INTO productos (nombre_producto, precio_unitario) VALUES (?, ?)",
+          [row["Producto Comprado"], row["Precio Unitario"]]
+        );
+        productoId = res.insertId;
+      }
+
+      // === 5) Insertar Compra
+      const [compraRes] = await connection.execute(
+        "INSERT INTO compras (id_usuario, fecha_compra) VALUES (?, ?)",
+        [usuarioId, row["Fecha Compra"]]
+      );
+      const compraId = compraRes.insertId;
+
+      // === 6) Insertar Detalle de Compra
+      await connection.execute(
+        "INSERT INTO detalle_compras (id_compra, id_producto, cantidad) VALUES (?, ?, ?)",
+        [compraId, productoId, row["Cantidad"]]
+      );
+
+      console.log(`✔ Registro insertado: ${row["Nombre Completo"]}`);
+    }
+
+    console.log("Importación completada");
+    await connection.end();
+  } catch (err) {
+    console.error("Error:", err);
+  }
+})();
+[11/8, 6:45 p. m.] ~Sarah Pérez~: recordar que donde dice user y password colocar la de tu mysql
+[11/8, 6:47 p. m.] ~Sarah Pérez~: (terminal visual )En tu terminal, desde la carpeta del proyecto:
+node importar.js
+
+te respondera esto 
+node importar.js
+[dotenv@17.2.1] injecting env (5) from .env -- tip: 📡 auto-backup env with Radar: https://dotenvx.com/radar
+Conectado a MySQL
+15 filas leídas del Excel
+✔ Registro insertado: Juan Pérez
+✔ Registro insertado: Ana Torres
+✔ Registro insertado: Pedro Gómez
+✔ Registro insertado: Laura Suárez
+✔ Registro insertado: Carlos Herrera
+✔ Registro insertado: Sofía Martínez
+✔ Registro insertado: Andrés López
+✔ Registro insertado: Marta Ríos
+✔ Registro insertado: Ricardo Díaz
+✔ Registro insertado: Natalia Gómez
+✔ Registro insertado: Javier Torres
+✔ Registro insertado: Paula López
+✔ Registro insertado: Felipe Rojas
+✔ Registro insertado: Camila Vargas
+✔ Registro insertado: Oscar Medina
+Importación completada
+[11/8, 6:47 p. m.] ~Sarah Pérez~: Después puedes entrar a MySQL y comprobar:
+
+USE tienda_excel;
+SELECT * FROM usuarios;
+SELECT * FROM productos;
+SELECT * FROM compras;
+[11/8, 6:48 p. m.] ~Sarah Pérez~: que respondera esto
+
+mysql> USE tienda_excel;
+Database changed
+mysql> SELECT * FROM usuarios;
++----+------------------+---------------+------+------------+--------------+-----------+
+| id | nombre           | email         | edad | telefono   | id_direccion | id_genero |
++----+------------------+---------------+------+------------+--------------+-----------+
+|  1 | Juan Pérez       | juan@x.com    |   28 | 3112223333 |            1 |         1 |
+|  2 | Ana Torres       | ana@x.com     |   35 | 3001114444 |            2 |         2 |
+|  3 | Pedro Gómez      | pedro@x.com   |   42 | 3015557777 |            3 |         1 |
+|  4 | Laura Suárez     | laura@x.com   |   30 | 3029998888 |            4 |         2 |
+|  5 | Carlos Herrera   | carlos@x.com  |   29 | 3102221111 |            5 |         1 |
+|  6 | Sofía Martínez   | sofia@x.com   |   27 | 3155556666 |            6 |         2 |
+|  7 | Andrés López     | andres@x.com  |   34 | 3123334444 |            7 |         1 |
+|  8 | Marta Ríos       | marta@x.com   |   38 | 3005557777 |            8 |         2 |
+|  9 | Ricardo Díaz     | ricardo@x.com |   31 | 3012228888 |            9 |         1 |
+| 10 | Natalia Gómez    | natalia@x.com |   26 | 3138889999 |           10 |         2 |
+| 11 | Javier Torres    | javier@x.com  |   37 | 3204445555 |            2 |         1 |
+| 12 | Paula López      | paula@x.com   |   29 | 3142221111 |           11 |         2 |
+| 13 | Felipe Rojas     | felipe@x.com  |   33 | 3106665555 |           12 |         1 |
+| 14 | Camila Vargas    | camila@x.com  |   28 | 3117776666 |           13 |         2 |
+| 15 | Oscar Medina     | oscar@x.com   |   36 | 3152223333 |           14 |         1 |
++----+------------------+---------------+------+------------+--------------+-----------+
+15 rows in set (0,00 sec)
+
+mysql> SELECT * FROM productos;
++----+--------------------+-----------------+
+| id | nombre_producto    | precio_unitario |
++----+--------------------+-----------------+
+|  1 | Laptop HP          |         2500.00 |
+|  2 | Mouse Logitech     |           80.00 |
+|  3 | Teclado Genius     |          150.00 |
+|  4 | Monitor LG         |         1200.00 |
+|  5 | Disco Duro Seagate |          350.00 |
+|  6 | Impresora HP       |          700.00 |
+|  7 | Parlantes Sony     |          300.00 |
+|  8 | Silla Gamer        |          950.00 |
+|  9 | Webcam Logitech    |          200.00 |
+| 10 | Memoria USB 32GB   |           40.00 |
+| 11 | Router TP-Link     |          120.00 |
+| 12 | Tablet Samsung     |         1500.00 |
+| 13 | Smartwatch Xiaomi  |          400.00 |
+| 14 | Cámara Canon       |         2200.00 |
+| 15 | Proyector Epson    |         1800.00 |
++----+--------------------+-----------------+
+15 rows in set (0,00 sec)
+
+mysql> SELECT * FROM compras;
++----+------------+--------------+
+| id | id_usuario | fecha_compra |
++----+------------+--------------+
+|  1 |          1 | 2024-05-10   |
+|  2 |          2 | 2024-06-15   |
+|  3 |          3 | 2024-07-20   |
+|  4 |          4 | 2024-08-01   |
+|  5 |          5 | 2024-09-05   |
+|  6 |          6 | 2024-05-22   |
+|  7 |          7 | 2024-06-30   |
+|  8 |          8 | 2024-07-18   |
+|  9 |          9 | 2024-08-10   |
+| 10 |         10 | 2024-09-15   |
+| 11 |         11 | 2024-05-12   |
+| 12 |         12 | 2024-06-25   |
+| 13 |         13 | 2024-07-05   |
+| 14 |         14 | 2024-08-20   |
+| 15 |         15 | 2024-09-28   |
++----+------------+--------------+
+15 rows in set (0,00 sec)
+
+mysql>
